@@ -1,6 +1,7 @@
 # =============================================================================
 # JABU-SAMS Cloud Core — Python Dependencies
 # Phase 1: Flask, SQLAlchemy, PostgreSQL, JWT, Migrations, Admin
+# Phase 2: Celery, Redis — Asynchronous Offline Sync Engine
 # =============================================================================
 
 # --- Core Web Framework ---
@@ -8,8 +9,8 @@ Flask==3.0.3
 
 # --- Database ORM & PostgreSQL Driver ---
 Flask-SQLAlchemy==3.1.1
-SQLAlchemy==2.0.30
-psycopg2-binary==2.9.9          # PostgreSQL adapter (binary, no compilation needed)
+SQLAlchemy==2.0.50            # 2.0.50+ required for Python 3.14 compatibility
+psycopg2-binary==2.9.12         # PostgreSQL adapter — 2.9.12+ required for Python 3.14 wheels
 
 # --- Database Migrations ---
 Flask-Migrate==4.0.7            # Wraps Alembic for schema version control
@@ -21,6 +22,20 @@ bcrypt==4.1.3                   # Password hashing
 
 # --- Admin Panel ---
 Flask-Admin==1.6.1              # Auto-generated admin UI for all SQLAlchemy models
+
+# --- Phase 2: Async Task Queue & Message Broker ---
+# Celery: distributed task queue that processes offline sync batches in the
+# background, completely decoupled from the Flask request/response cycle.
+celery==5.4.0
+
+# redis: Python client for communicating with the Redis broker and result backend.
+# Redis stores both the task queue (unprocessed batches) and task results (summaries).
+redis==5.0.6
+
+# Flower: real-time web-based Celery monitoring dashboard.
+# Launch with: celery -A app.celery_worker.celery_app flower --port=5555
+# Access at:   http://localhost:5555
+flower==2.0.1
 
 # --- Environment & Configuration ---
 python-dotenv==1.0.1            # Loads .env variables into os.environ

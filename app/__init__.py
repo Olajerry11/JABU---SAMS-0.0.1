@@ -42,6 +42,19 @@ jwt = JWTManager()
 # Flask-Admin — auto-generates CRUD admin UI from SQLAlchemy models
 admin = Admin(name="JABU-SAMS Admin", template_mode="bootstrap4")
 
+# ---------------------------------------------------------------------------
+# Phase 2 — Celery (Async Sync Engine)
+# ---------------------------------------------------------------------------
+# The Celery instance is declared here at module level so it can be imported
+# by the worker process (`celery -A app.celery_worker.celery_app worker`).
+# It is re-configured inside create_app() to bind Flask's application context
+# so tasks can safely access `db.session` and all SQLAlchemy models.
+# ---------------------------------------------------------------------------
+from app.celery_worker import make_celery
+
+# Module-level Celery instance (unbound to Flask app until create_app() runs)
+celery_app = make_celery()
+
 
 # =============================================================================
 # Application Factory
@@ -154,6 +167,22 @@ def create_app(config_name: str = None) -> Flask:
         register_admin_views(admin, db)
 
     # -------------------------------------------------------------------------
+    # 5b. Initialize Celery with Flask App Context (Phase 2)
+    # -------------------------------------------------------------------------
+    # Re-create the Celery instance bound to THIS Flask app instance.
+    # This replaces the module-level unbound `celery_app` with a context-aware
+    # version. The global reference is updated so that tasks imported anywhere
+    # in the application use the Flask-bound instance.
+    #
+    # Why re-create instead of just calling .init_app()?
+    # Celery has no official init_app() pattern. The Flask-binding is achieved
+    # by subclassing celery.Task with a __call__ that wraps execution in
+    # `with app.app_context()`. make_celery(app) does exactly this.
+    global celery_app
+    celery_app = make_celery(app)
+    app.logger.info("[Phase 2] Celery async engine initialized and bound to Flask app context.")
+
+    # -------------------------------------------------------------------------
     # 6. Register API Blueprints
     # -------------------------------------------------------------------------
     # Blueprints partition the API into logical domains.
@@ -163,11 +192,19 @@ def create_app(config_name: str = None) -> Flask:
         from app.api.users import users_bp
         from app.api.access_logs import access_logs_bp
         from app.api.rooms import rooms_bp
+        # Phase 2 — Async Sync Engine: upload, status polling, health check
+        from app.api.sync import sync_bp
+        # Phase 3 — Edge Pull-Sync: tablet incremental delta downloads
+        from app.api.pull_sync import pull_sync_bp
 
         app.register_blueprint(auth_bp,         url_prefix="/api/v1/auth")
         app.register_blueprint(users_bp,        url_prefix="/api/v1/users")
         app.register_blueprint(rooms_bp,        url_prefix="/api/v1/rooms")
         app.register_blueprint(access_logs_bp,  url_prefix="/api/v1/logs")
+        # Phase 2: POST /upload, GET /status/<id>, GET /health
+        app.register_blueprint(sync_bp,         url_prefix="/api/v1/sync")
+        # Phase 3: GET /pull/users, /pull/rooms, /pull/allocations, /pull/bootstrap
+        app.register_blueprint(pull_sync_bp,    url_prefix="/api/v1/sync")
 
     # -------------------------------------------------------------------------
     # 7. Register JWT Error Handlers

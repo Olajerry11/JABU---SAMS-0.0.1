@@ -30,15 +30,22 @@ JABU---SAMS-0.0.1/
     ├── __init__.py           # Flask Application Factory
     ├── config.py             # Environment-specific configuration
     ├── admin_views.py        # Flask-Admin model views
+    ├── celery_worker.py      # Phase 2: Celery task definitions
     ├── models/
     │   ├── __init__.py
     │   └── core.py           # SQLAlchemy ORM models (UUID PKs)
+    ├── edge/                 # Phase 3: Tablet-side offline layer
+    │   ├── __init__.py
+    │   ├── sqlite_schema.py  # Canonical SQLite DDL (5 tables)
+    │   └── validators.py     # Offline TOTP + RBAC validation engine
     └── api/
         ├── __init__.py
         ├── auth.py           # JWT login / refresh / /me
         ├── users.py          # User CRUD + TOTP secret generation
         ├── rooms.py          # Rooms & session-based allocations
-        └── access_logs.py    # Immutable scan event audit trail
+        ├── access_logs.py    # Immutable scan event audit trail
+        ├── sync.py           # Phase 2: POST /upload, GET /status, GET /health
+        └── pull_sync.py      # Phase 3: GET /pull/* delta sync endpoints
 ```
 
 ---
@@ -103,25 +110,45 @@ python run.py
 ## 🗺️ Development Roadmap
 
 - [x] **Phase 1** — Cloud Core: Flask + SQLAlchemy + PostgreSQL models + base API
-- [ ] **Phase 2** — Async Sync Engine: Redis + Celery + batch upload endpoint
-- [ ] **Phase 3** — Edge Database: SQLite schema + offline event queue
+- [x] **Phase 2** — Async Sync Engine: Redis + Celery + batch upload endpoint
+- [x] **Phase 3** — Edge Database: SQLite schema + offline event queue + pull-sync API
 - [ ] **Phase 4** — Flutter Client: UI + TOTP QR generation + optical scanning
 
 ---
 
-## 📡 API Endpoints (Phase 1)
+## 📡 API Endpoints (Phase 1 + 2 + 3)
 
+### Auth
 | Method | Endpoint | Description |
 |---|---|---|
 | POST | `/api/v1/auth/login` | Staff login → JWT token pair |
 | POST | `/api/v1/auth/refresh` | Refresh access token |
-| GET | `/api/v1/auth/me` | Current user profile |
-| GET | `/api/v1/users/` | List users (paginated, filterable) |
+| GET  | `/api/v1/auth/me` | Current user profile |
+
+### Users & Rooms
+| Method | Endpoint | Description |
+|---|---|---|
+| GET  | `/api/v1/users/` | List users (paginated, filterable) |
 | POST | `/api/v1/users/` | Register new principal + generate TOTP |
-| GET | `/api/v1/users/<id>` | Get single user |
-| PATCH | `/api/v1/users/<id>` | Update user fields |
-| GET | `/api/v1/rooms/` | List rooms |
+| GET  | `/api/v1/users/<id>` | Get single user |
+| PATCH| `/api/v1/users/<id>` | Update user fields |
+| GET  | `/api/v1/rooms/` | List rooms |
 | POST | `/api/v1/rooms/` | Create room |
 | POST | `/api/v1/rooms/allocations` | Allocate user to room (per session) |
 | POST | `/api/v1/logs/` | Record a scan event |
-| GET | `/api/v1/logs/` | Query audit trail |
+| GET  | `/api/v1/logs/` | Query audit trail |
+
+### Phase 2: Async Sync (Tablet → Cloud)
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/v1/sync/upload` | Upload offline batch → Celery queue (202 Accepted) |
+| GET  | `/api/v1/sync/status/<task_id>` | Poll batch processing status |
+| GET  | `/api/v1/sync/health` | Public broker reachability check |
+
+### Phase 3: Pull Sync (Cloud → Tablet)
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/v1/sync/pull/bootstrap` | First-time full download for a new tablet |
+| GET | `/api/v1/sync/pull/users` | Delta of changed student records since `?since=` |
+| GET | `/api/v1/sync/pull/rooms` | Delta of changed room records since `?since=` |
+| GET | `/api/v1/sync/pull/allocations` | Delta of changed room allocations since `?since=` |
