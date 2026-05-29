@@ -1,0 +1,37 @@
+# =============================================================================
+# JABU-SAMS Cloud Core — Python Dependencies
+# Phase 1: Flask, SQLAlchemy, PostgreSQL, JWT, Migrations, Admin
+# =============================================================================
+
+# --- Core Web Framework ---
+Flask==3.0.3
+
+# --- Database ORM & PostgreSQL Driver ---
+Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.30
+psycopg2-binary==2.9.9          # PostgreSQL adapter (binary, no compilation needed)
+
+# --- Database Migrations ---
+Flask-Migrate==4.0.7            # Wraps Alembic for schema version control
+
+# --- Authentication & Security ---
+Flask-JWT-Extended==4.6.0       # JWT token management (access + refresh tokens)
+PyJWT==2.8.0                    # JWT encoding/decoding core
+bcrypt==4.1.3                   # Password hashing
+
+# --- Admin Panel ---
+Flask-Admin==1.6.1              # Auto-generated admin UI for all SQLAlchemy models
+
+# --- Environment & Configuration ---
+python-dotenv==1.0.1            # Loads .env variables into os.environ
+
+# --- TOTP / QR Code ---
+pyotp==2.9.0                    # TOTP secret generation (matches Student App's QR engine)
+
+# --- Utilities ---
+marshmallow==3.21.2             # Schema serialization / validation
+Flask-Marshmallow==1.2.0        # Flask integration for marshmallow
+marshmallow-sqlalchemy==1.0.0   # SQLAlchemy <-> marshmallow auto-schema bridge
+
+# --- CORS Support ---
+Flask-Cors==4.0.1               # Cross-origin resource sharing for Flutter clients

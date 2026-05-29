@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Environment
+.env
+venv/
+.venv/
+env/
+
+# Distribution
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# Flask instance folder
+instance/
+
+# Migration auto-generated (keep the migrations/ folder, not the compiled cache)
+migrations/__pycache__/
+
+# OS
+.DS_Store
+Thumbs.db
