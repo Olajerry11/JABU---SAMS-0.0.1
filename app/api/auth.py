@@ -66,6 +66,76 @@ def login():
     }), 200
 
 
+# =============================================================================
+# STUDENT APP FIRST-TIME SETUP
+# =============================================================================
+
+@auth_bp.route("/student-login", methods=["POST"])
+def student_login():
+    """
+    POST /api/v1/auth/student-login
+    First-time setup endpoint for the JABU-SAMS Student App.
+
+    A student enters their matric number in the Flutter app. This endpoint
+    returns their full profile INCLUDING the totp_secret so the app can
+    cache it in flutter_secure_storage for offline QR generation.
+
+    SECURITY MODEL:
+        - Requires internet on first use only.
+        - The secret is cached on-device; subsequent QR generation is offline.
+        - HTTPS-only transmission (same model as Phase 3 pull-sync).
+        - No password required — matric number is the student's unique identity.
+          Physical presence at registration validates the student's identity.
+
+    Request Body (JSON):
+        { "matric_no": "19/0001" }
+
+    Returns:
+        200: Full profile + totp_secret (store immediately, never fetched again)
+        404: Matric number not found or account inactive.
+        400: Missing matric_no field.
+    """
+    data = request.get_json(silent=True)
+    if not data or not data.get("matric_no"):
+        return jsonify({
+            "error":   "MISSING_FIELDS",
+            "message": "Field 'matric_no' is required."
+        }), 400
+
+    matric_no = data["matric_no"].strip().upper()
+    user = User.query.filter_by(matric_no=matric_no, is_active=True).first()
+
+    if not user:
+        return jsonify({
+            "error":   "NOT_FOUND",
+            "message": "No active account found for this matric number. "
+                       "Please visit the Registry to confirm your registration."
+        }), 404
+
+    # Create a JWT access token so the app can call authenticated endpoints
+    # (e.g., GET /auth/me for profile refresh) after setup.
+    access_token  = create_access_token(identity=str(user.user_id))
+    refresh_token = create_refresh_token(identity=str(user.user_id))
+
+    return jsonify({
+        # Profile fields
+        "user_id":      str(user.user_id),
+        "matric_no":    user.matric_no,
+        "full_name":    user.full_name,
+        "student_type": user.student_type,
+        "fee_status":   user.fee_status,
+        "level":        user.level,
+        "gate_photo_url": user.gate_photo_url,
+        "is_active":    user.is_active,
+        # TOTP secret — store in flutter_secure_storage immediately
+        # This is the only endpoint that ever returns this value post-registration.
+        "totp_secret":  user.totp_secret,
+        # JWT tokens for subsequent authenticated API calls
+        "access_token":  access_token,
+        "refresh_token": refresh_token,
+    }), 200
+
+
 @auth_bp.route("/refresh", methods=["POST"])
 @jwt_required(refresh=True)
 def refresh():
